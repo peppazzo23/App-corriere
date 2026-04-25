@@ -1,8 +1,8 @@
 import Dexie from 'dexie';
 
 export const db = new Dexie('GiuseppeDB');
-db.version(1).stores({
-  customers: '++id, name, city, address, phone',
+db.version(2).stores({
+  customers: '++id, name, city, address, phone, instructions',
   auditLog: '++id, timestamp, action'
 });
 
