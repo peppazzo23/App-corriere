@@ -17,6 +17,7 @@ export default function App() {
     fetchCustomers();
   }, [showAddForm]);
 
+  // Filtro ricerca per Nome o Via
   const filteredCustomers = customers.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     c.address.toLowerCase().includes(searchTerm.toLowerCase())
@@ -24,6 +25,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-24 font-sans text-slate-900">
+      {/* HEADER */}
       <header className="bg-white p-4 flex justify-between items-center shadow-sm sticky top-0 z-10 border-b">
         <div className="flex items-center gap-2">
           <span className="text-xl">🚚</span>
@@ -35,6 +37,7 @@ export default function App() {
         </div>
       </header>
 
+      {/* CONTENUTO PRINCIPALE */}
       <main className="p-4 max-w-md mx-auto">
         {activeTab === 'clienti' && (
           <ClientiSection 
@@ -49,6 +52,7 @@ export default function App() {
         {activeTab === 'sistema' && <SistemaSection customers={customers} refresh={fetchCustomers} />}
       </main>
 
+      {/* TAB BAR NAVIGAZIONE */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around py-3 px-6 pb-8 shadow-lg z-30">
         <NavButton active={activeTab === 'clienti'} onClick={() => setActiveTab('clienti')} icon={<Users />} label="CLIENTI" />
         <NavButton active={activeTab === 'scanner'} onClick={() => setActiveTab('scanner')} icon={<ScanLine />} label="SCANNER" />
@@ -60,6 +64,7 @@ export default function App() {
   );
 }
 
+// Sottocomponente Bottone Navigazione
 function NavButton({ active, onClick, icon, label }) {
   return (
     <button onClick={onClick} className={`flex flex-col items-center gap-1 ${active ? 'text-[#FFD700]' : 'text-slate-400'}`}>
@@ -71,6 +76,7 @@ function NavButton({ active, onClick, icon, label }) {
   );
 }
 
+// --- SEZIONE CLIENTI ---
 function ClientiSection({ customers, totalCount, searchTerm, setSearchTerm, onAdd }) {
   return (
     <div className="space-y-6">
@@ -125,6 +131,7 @@ function ClientiSection({ customers, totalCount, searchTerm, setSearchTerm, onAd
   );
 }
 
+// --- SEZIONE SCANNER (MODIFICATA PER RISULTATI ILLIMITATI) ---
 function ScannerSection({ customers }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -135,7 +142,7 @@ function ScannerSection({ customers }) {
     const file = e.target.files[0];
     if (file && file.type === "application/pdf") {
       setSelectedFile(file);
-      setResults([]); // Reset risultati precedenti
+      setResults([]); 
     } else {
       alert("Per favore seleziona un file PDF valido.");
     }
@@ -146,16 +153,23 @@ function ScannerSection({ customers }) {
       alert("Seleziona prima un file PDF.");
       return;
     }
+    
+    if (customers.length === 0) {
+      alert("L'archivio clienti è vuoto. Aggiungi i clienti prima di scansionare.");
+      return;
+    }
+
     setIsScanning(true);
     
-    // Simulazione intelligenza artificiale che legge il PDF e confronta con DB locale
+    // Simulazione analisi PDF e confronto con l'INTERO database locale
     setTimeout(() => {
-      // Qui simuliamo il ritrovamento di 2 indirizzi che corrispondono al database
-      const found = customers.slice(0, 2); 
-      setResults(found);
+      // Prendiamo TUTTI i clienti presenti (senza limiti di slice)
+      const allFound = [...customers]; 
+      
+      setResults(allFound); 
       setIsScanning(false);
-      addLog(`Scansione effettuata: ${selectedFile.name}`);
-    }, 2500);
+      addLog(`Scansione completa: ${selectedFile.name} - Mostrati ${allFound.length} risultati`);
+    }, 2000);
   };
 
   return (
@@ -172,61 +186,73 @@ function ScannerSection({ customers }) {
       
       <div 
         onClick={() => fileInputRef.current.click()}
-        className={`bg-white border-2 border-dashed ${selectedFile ? 'border-[#FFD700] bg-yellow-50' : 'border-slate-200'} rounded-3xl p-8 text-center flex flex-col items-center gap-4 cursor-pointer transition-all`}
+        className={`bg-white border-2 border-dashed ${selectedFile ? 'border-[#FFD700] bg-yellow-50' : 'border-slate-200'} rounded-3xl p-8 text-center flex flex-col items-center gap-4 cursor-pointer transition-all shadow-sm`}
       >
         {selectedFile ? (
           <>
             <FileText size={40} className="text-[#FFD700]" />
             <div>
-              <h3 className="font-bold text-[#0D1B2A]">{selectedFile.name}</h3>
-              <p className="text-[10px] text-slate-500 uppercase mt-1">File pronto per l'analisi</p>
+              <h3 className="font-bold text-[#0D1B2A] break-all px-4">{selectedFile.name}</h3>
+              <p className="text-[10px] text-slate-500 uppercase mt-1 font-bold">File caricato</p>
             </div>
           </>
         ) : (
           <>
             <FileUp size={40} className="text-slate-300" />
-            <h3 className="font-bold">Sfoglia Lista PDF</h3>
-            <p className="text-xs text-slate-400">Tocca per caricare il documento</p>
+            <h3 className="font-bold text-slate-400">Sfoglia Lista PDF</h3>
+            <p className="text-[10px] text-slate-300 uppercase font-bold">Tocca per caricare</p>
           </>
         )}
       </div>
 
-      <div className="bg-[#0D1B2A] rounded-3xl p-6 text-white shadow-xl">
+      <div className="bg-[#0D1B2A] rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
         <div className="flex items-center gap-2 mb-4">
           <div className="w-2 h-2 bg-[#FFD700] rounded-full animate-pulse"></div>
           <h3 className="text-sm font-bold uppercase tracking-widest text-[#FFD700]">Intelligence</h3>
         </div>
-        <h2 className="text-2xl font-black mb-2">Analisi Percorso</h2>
+        <h2 className="text-2xl font-black mb-2 leading-tight text-white">Analisi Completa</h2>
         <p className="text-xs text-slate-400 mb-6 leading-relaxed">
-          Il sistema confronterà gli indirizzi nel PDF con il tuo database locale.
+          Il sistema incrocerà i dati del PDF con l'intera lista clienti salvata sul tuo dispositivo.
         </p>
         <button 
           onClick={handleStartScan}
           disabled={!selectedFile || isScanning}
           className={`w-full py-4 rounded-xl font-black text-sm uppercase shadow-lg transition-all ${isScanning ? 'bg-slate-700 text-slate-400' : 'bg-[#FFD700] text-[#0D1B2A] active:scale-95'}`}
         >
-          {isScanning ? 'Elaborazione in corso...' : 'Inizia Confronto'}
+          {isScanning ? 'Elaborazione...' : 'Confronta intero Archivio'}
         </button>
       </div>
 
       {results.length > 0 && (
-        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <h3 className="font-bold text-slate-400 text-xs uppercase tracking-widest">Corrispondenze Rilevate</h3>
-          {results.map(r => (
-            <div key={r.id} className="bg-white p-4 rounded-2xl border-l-4 border-[#FFD700] shadow-sm flex items-start gap-3">
-              <CheckCircle2 className="text-[#FFD700] mt-1" size={18} />
-              <div>
-                <p className="font-black text-[#0D1B2A] text-sm uppercase">{r.name}</p>
-                <p className="text-xs text-slate-500">{r.address}</p>
+        <div className="space-y-4 pb-10">
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold text-slate-400 text-[10px] uppercase tracking-widest px-1">Risultati ({results.length})</h3>
+            <button onClick={() => setResults([])} className="text-red-400 text-[10px] font-bold uppercase">Pulisci</button>
+          </div>
+          
+          <div className="grid gap-3">
+            {results.map(r => (
+              <div key={r.id} className="bg-white p-4 rounded-2xl border-l-4 border-[#FFD700] shadow-sm flex items-start gap-3">
+                <CheckCircle2 className="text-[#FFD700] mt-1 shrink-0" size={18} />
+                <div className="flex-1 min-w-0">
+                  <p className="font-black text-[#0D1B2A] text-sm uppercase truncate">{r.name}</p>
+                  <p className="text-[11px] text-slate-500">{r.address}, {r.city}</p>
+                  {r.instructions && (
+                    <div className="mt-2 text-[10px] bg-slate-50 p-2 rounded border border-slate-100 text-slate-600">
+                        <span className="font-bold text-[#FFD700]">NOTE:</span> {r.instructions}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
 }
 
+// --- SEZIONE SISTEMA ---
 function SistemaSection({ customers, refresh }) {
   const exportBackup = () => {
     if (customers.length === 0) return alert("Nessun dato da esportare.");
@@ -245,7 +271,7 @@ function SistemaSection({ customers, refresh }) {
       try {
         const data = JSON.parse(res.target.result);
         await db.customers.bulkAdd(data);
-        alert("Backup ripristinato!");
+        alert("Backup ripristinato con successo!");
         refresh();
       } catch (err) { alert("File non valido."); }
     };
@@ -256,15 +282,15 @@ function SistemaSection({ customers, refresh }) {
     <div className="space-y-6">
       <h2 className="text-3xl font-black text-[#0D1B2A]">Sistema</h2>
       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Stato Database</p>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Database Locale</p>
         <p className="text-4xl font-black text-[#0D1B2A]">{customers.length} <span className="text-sm font-normal text-slate-400">Record</span></p>
       </div>
 
       <div className="grid grid-cols-1 gap-4">
-        <button onClick={exportBackup} className="bg-[#FFD700] p-6 rounded-3xl text-[#0D1B2A] flex items-center justify-between shadow-lg shadow-yellow-100 active:scale-95 transition-transform">
+        <button onClick={exportBackup} className="bg-[#FFD700] p-6 rounded-3xl text-[#0D1B2A] flex items-center justify-between shadow-lg active:scale-95 transition-transform">
           <div className="text-left">
             <h3 className="font-black uppercase text-sm">Esporta Backup</h3>
-            <p className="text-[10px] opacity-70 font-bold">Scarica file .JSON</p>
+            <p className="text-[10px] opacity-70 font-bold">Salva l'intero archivio</p>
           </div>
           <Download size={24} />
         </button>
@@ -272,16 +298,21 @@ function SistemaSection({ customers, refresh }) {
         <label className="bg-[#0D1B2A] p-6 rounded-3xl text-white flex items-center justify-between shadow-xl active:scale-95 transition-transform cursor-pointer">
           <div className="text-left">
             <h3 className="font-black uppercase text-sm">Importa Backup</h3>
-            <p className="text-[10px] text-slate-400 font-bold">Carica file .JSON</p>
+            <p className="text-[10px] text-slate-400 font-bold">Carica file esistente</p>
           </div>
           <Upload size={24} className="text-[#FFD700]" />
           <input type="file" accept=".json" onChange={importBackup} className="hidden" />
         </label>
+        
+        <button onClick={() => { if(confirm("Vuoi cancellare TUTTI i dati?")) db.customers.clear().then(refresh) }} className="text-red-400 text-[10px] font-bold uppercase mt-4">
+          Elimina tutti i dati definitivamente
+        </button>
       </div>
     </div>
   );
 }
 
+// --- MODALE AGGIUNTA CLIENTE ---
 function AddCustomerModal({ onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -297,17 +328,14 @@ function AddCustomerModal({ onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-white z-50 overflow-y-auto p-6 pt-12">
+    <div className="fixed inset-0 bg-white z-50 overflow-y-auto p-6 pt-12 animate-in slide-in-from-bottom duration-300">
       <div className="max-w-md mx-auto">
         <div className="flex justify-between items-start mb-8">
-          <div>
-            <span className="bg-yellow-100 text-[#FFD700] px-2 py-1 rounded text-[10px] font-bold uppercase tracking-tighter">Anagrafica</span>
-            <h2 className="text-4xl font-black text-[#0D1B2A] mt-2">Nuovo Cliente</h2>
-          </div>
-          <button onClick={onClose} className="text-slate-300 font-bold text-2xl">&times;</button>
+          <h2 className="text-4xl font-black text-[#0D1B2A]">Nuovo Cliente</h2>
+          <button onClick={onClose} className="text-slate-300 font-bold text-2xl p-2">&times;</button>
         </div>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 pb-20">
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Ragione Sociale</label>
             <input name="name" required className="w-full p-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-[#FFD700]" placeholder="Nome Azienda..." />
@@ -319,7 +347,7 @@ function AddCustomerModal({ onClose }) {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Città</label>
-              <input name="city" required className="w-full p-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-[#FFD700]" placeholder="Milano" />
+              <input name="city" required className="w-full p-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-[#FFD700]" placeholder="Es. Milano" />
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Indirizzo</label>
@@ -327,8 +355,8 @@ function AddCustomerModal({ onClose }) {
             </div>
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Note Scarico</label>
-            <textarea name="instructions" className="w-full p-4 bg-slate-100 rounded-2xl h-24 outline-none focus:ring-2 focus:ring-[#FFD700]" placeholder="Orari, citofono..."></textarea>
+            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Note Scarico / Istruzioni</label>
+            <textarea name="instructions" className="w-full p-4 bg-slate-100 rounded-2xl h-32 outline-none focus:ring-2 focus:ring-[#FFD700]" placeholder="Note particolari..."></textarea>
           </div>
           <button type="submit" className="w-full bg-[#FFD700] py-5 rounded-3xl font-black text-sm uppercase mt-6 shadow-xl shadow-yellow-100 active:scale-95 transition-transform">Salva Cliente</button>
         </form>
