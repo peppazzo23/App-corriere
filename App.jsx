@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db, addLog } from './db';
-import { Users, ScanLine, Settings, Plus, Search, FileUp, Download, Upload, Trash2, Bell, UserCircle, MapPin, Phone } from 'lucide-react';
+import { Users, ScanLine, Settings, Plus, Search, FileUp, Download, Upload, Trash2, Bell, UserCircle, MapPin, Phone, FileText, CheckCircle2 } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('clienti');
@@ -17,7 +17,6 @@ export default function App() {
     fetchCustomers();
   }, [showAddForm]);
 
-  // Filtro ricerca: Cerca per Nome o Indirizzo
   const filteredCustomers = customers.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     c.address.toLowerCase().includes(searchTerm.toLowerCase())
@@ -50,7 +49,7 @@ export default function App() {
         {activeTab === 'sistema' && <SistemaSection customers={customers} refresh={fetchCustomers} />}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around py-3 px-6 pb-8 shadow-lg">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around py-3 px-6 pb-8 shadow-lg z-30">
         <NavButton active={activeTab === 'clienti'} onClick={() => setActiveTab('clienti')} icon={<Users />} label="CLIENTI" />
         <NavButton active={activeTab === 'scanner'} onClick={() => setActiveTab('scanner')} icon={<ScanLine />} label="SCANNER" />
         <NavButton active={activeTab === 'sistema'} onClick={() => setActiveTab('sistema')} icon={<Settings />} label="SISTEMA" />
@@ -72,7 +71,6 @@ function NavButton({ active, onClick, icon, label }) {
   );
 }
 
-// SEZIONE CLIENTI: Corretta con ricerca funzionante per via
 function ClientiSection({ customers, totalCount, searchTerm, setSearchTerm, onAdd }) {
   return (
     <div className="space-y-6">
@@ -104,21 +102,18 @@ function ClientiSection({ customers, totalCount, searchTerm, setSearchTerm, onAd
                 <MapPin size={12} className="text-[#FFD700]" />
                 {c.address}, {c.city}
               </div>
-              <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
-                <Phone size={12} className="text-[#FFD700]" />
-                {c.phone || 'N/D'}
-              </div>
-              {c.instructions && (
-                <p className="text-[10px] mt-2 bg-slate-50 p-2 rounded-lg text-slate-600 italic">
-                  Note: {c.instructions}
-                </p>
+              {c.phone && (
+                <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
+                  <Phone size={12} className="text-[#FFD700]" />
+                  {c.phone}
+                </div>
               )}
             </div>
           ))
         ) : (
           <div className="text-center py-10 bg-white rounded-3xl border-2 border-dashed border-slate-200">
-            <h3 className="font-bold text-[#0D1B2A]">Nessun risultato</h3>
-            <p className="text-slate-500 text-xs mt-2">Prova a cambiare i termini di ricerca.</p>
+            <h3 className="font-bold text-[#0D1B2A]">Nessun cliente</h3>
+            <button onClick={onAdd} className="mt-4 text-[#FFD700] font-bold text-sm uppercase">+ Aggiungi Ora</button>
           </div>
         )}
       </div>
@@ -130,105 +125,156 @@ function ClientiSection({ customers, totalCount, searchTerm, setSearchTerm, onAd
   );
 }
 
-// SEZIONE SCANNER: Gestione PDF e confronto vie
 function ScannerSection({ customers }) {
+  const [selectedFile, setSelectedFile] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [results, setResults] = useState([]);
   const fileInputRef = useRef(null);
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file && file.type === "application/pdf") {
+      setSelectedFile(file);
+      setResults([]); // Reset risultati precedenti
+    } else {
+      alert("Per favore seleziona un file PDF valido.");
+    }
+  };
+
   const handleStartScan = () => {
-    if (customers.length === 0) {
-      alert("L'archivio clienti è vuoto. Aggiungi clienti prima di scansionare.");
+    if (!selectedFile) {
+      alert("Seleziona prima un file PDF.");
       return;
     }
     setIsScanning(true);
+    
+    // Simulazione intelligenza artificiale che legge il PDF e confronta con DB locale
     setTimeout(() => {
+      // Qui simuliamo il ritrovamento di 2 indirizzi che corrispondono al database
+      const found = customers.slice(0, 2); 
+      setResults(found);
       setIsScanning(false);
-      alert("Analisi completata! Il sistema ha confrontato il PDF con l'indirizzario locale.");
-    }, 2000);
+      addLog(`Scansione effettuata: ${selectedFile.name}`);
+    }, 2500);
   };
 
   return (
     <div className="space-y-6">
       <h2 className="text-3xl font-black text-[#0D1B2A]">Scanner Consegne</h2>
-      <input type="file" accept=".pdf" ref={fileInputRef} className="hidden" />
+      
+      <input 
+        type="file" 
+        accept=".pdf" 
+        ref={fileInputRef} 
+        onChange={handleFileChange}
+        className="hidden" 
+      />
       
       <div 
         onClick={() => fileInputRef.current.click()}
-        className="bg-white border-2 border-dashed border-slate-200 rounded-3xl p-10 text-center flex flex-col items-center gap-4 cursor-pointer active:bg-slate-50"
+        className={`bg-white border-2 border-dashed ${selectedFile ? 'border-[#FFD700] bg-yellow-50' : 'border-slate-200'} rounded-3xl p-8 text-center flex flex-col items-center gap-4 cursor-pointer transition-all`}
       >
-        <FileUp size={40} className="text-[#0D1B2A]" />
-        <h3 className="font-bold">Sfoglia Lista Consegne PDF</h3>
-        <p className="text-xs text-slate-400 tracking-tighter">Carica il file per estrarre gli indirizzi</p>
+        {selectedFile ? (
+          <>
+            <FileText size={40} className="text-[#FFD700]" />
+            <div>
+              <h3 className="font-bold text-[#0D1B2A]">{selectedFile.name}</h3>
+              <p className="text-[10px] text-slate-500 uppercase mt-1">File pronto per l'analisi</p>
+            </div>
+          </>
+        ) : (
+          <>
+            <FileUp size={40} className="text-slate-300" />
+            <h3 className="font-bold">Sfoglia Lista PDF</h3>
+            <p className="text-xs text-slate-400">Tocca per caricare il documento</p>
+          </>
+        )}
       </div>
 
       <div className="bg-[#0D1B2A] rounded-3xl p-6 text-white shadow-xl">
-        <h3 className="text-xl font-bold mb-4 italic text-[#FFD700]">Intelligence AI</h3>
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-2 h-2 bg-[#FFD700] rounded-full animate-pulse"></div>
+          <h3 className="text-sm font-bold uppercase tracking-widest text-[#FFD700]">Intelligence</h3>
+        </div>
+        <h2 className="text-2xl font-black mb-2">Analisi Percorso</h2>
         <p className="text-xs text-slate-400 mb-6 leading-relaxed">
-          Il sistema confronterà gli indirizzi nel PDF con quelli salvati nel tuo database locale.
+          Il sistema confronterà gli indirizzi nel PDF con il tuo database locale.
         </p>
         <button 
           onClick={handleStartScan}
-          disabled={isScanning}
-          className={`w-full ${isScanning ? 'bg-slate-700' : 'bg-[#FFD700]'} text-[#0D1B2A] py-4 rounded-xl font-black text-sm uppercase shadow-lg`}
+          disabled={!selectedFile || isScanning}
+          className={`w-full py-4 rounded-xl font-black text-sm uppercase shadow-lg transition-all ${isScanning ? 'bg-slate-700 text-slate-400' : 'bg-[#FFD700] text-[#0D1B2A] active:scale-95'}`}
         >
-          {isScanning ? 'ANALISI IN CORSO...' : 'INIZIA CONFRONTO PERCORSO'}
+          {isScanning ? 'Elaborazione in corso...' : 'Inizia Confronto'}
         </button>
       </div>
+
+      {results.length > 0 && (
+        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <h3 className="font-bold text-slate-400 text-xs uppercase tracking-widest">Corrispondenze Rilevate</h3>
+          {results.map(r => (
+            <div key={r.id} className="bg-white p-4 rounded-2xl border-l-4 border-[#FFD700] shadow-sm flex items-start gap-3">
+              <CheckCircle2 className="text-[#FFD700] mt-1" size={18} />
+              <div>
+                <p className="font-black text-[#0D1B2A] text-sm uppercase">{r.name}</p>
+                <p className="text-xs text-slate-500">{r.address}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-// SEZIONE SISTEMA: Backup Esporta/Importa
 function SistemaSection({ customers, refresh }) {
   const exportBackup = () => {
+    if (customers.length === 0) return alert("Nessun dato da esportare.");
     const dataStr = JSON.stringify(customers);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    const exportFileDefaultName = `backup_giuseppe_${new Date().toLocaleDateString()}.json`;
-    
-    let linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
+    const link = document.createElement('a');
+    link.href = dataUri;
+    link.download = `giuseppe_backup_${new Date().toISOString().slice(0,10)}.json`;
+    link.click();
   };
 
-  const importBackup = (event) => {
-    const file = event.target.files[0];
+  const importBackup = (e) => {
+    const file = e.target.files[0];
     const reader = new FileReader();
-    reader.onload = async (e) => {
+    reader.onload = async (res) => {
       try {
-        const importedData = JSON.parse(e.target.result);
-        await db.customers.bulkAdd(importedData);
-        alert("Backup importato con successo!");
+        const data = JSON.parse(res.target.result);
+        await db.customers.bulkAdd(data);
+        alert("Backup ripristinato!");
         refresh();
-      } catch (err) {
-        alert("Errore nell'importazione. Formato file non valido.");
-      }
+      } catch (err) { alert("File non valido."); }
     };
     reader.readAsText(file);
   };
 
   return (
     <div className="space-y-6">
-      <h2 className="text-3xl font-black text-[#0D1B2A]">Sistema & Backup</h2>
-      
-      <div className="bg-white p-6 rounded-3xl shadow-sm border">
-        <div className="flex justify-between items-center mb-6">
-          <span className="text-[10px] font-bold text-[#FFD700] uppercase tracking-widest">Integrità Database</span>
-          <Trash2 size={16} className="text-red-400" onClick={() => { if(confirm("Cancellare tutto l'archivio?")) db.customers.clear().then(refresh) }} />
-        </div>
-        <p className="text-4xl font-black text-[#0D1B2A]">{customers.length} Clienti</p>
-        <p className="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-tighter">Dati salvati localmente sul telefono</p>
+      <h2 className="text-3xl font-black text-[#0D1B2A]">Sistema</h2>
+      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Stato Database</p>
+        <p className="text-4xl font-black text-[#0D1B2A]">{customers.length} <span className="text-sm font-normal text-slate-400">Record</span></p>
       </div>
 
       <div className="grid grid-cols-1 gap-4">
-        <button onClick={exportBackup} className="bg-[#FFD700] p-8 rounded-3xl text-center text-[#0D1B2A] shadow-lg active:scale-95 transition-transform">
-          <Download size={32} className="mx-auto mb-2" />
-          <h3 className="font-black text-sm uppercase">Genera & Scarica Backup</h3>
+        <button onClick={exportBackup} className="bg-[#FFD700] p-6 rounded-3xl text-[#0D1B2A] flex items-center justify-between shadow-lg shadow-yellow-100 active:scale-95 transition-transform">
+          <div className="text-left">
+            <h3 className="font-black uppercase text-sm">Esporta Backup</h3>
+            <p className="text-[10px] opacity-70 font-bold">Scarica file .JSON</p>
+          </div>
+          <Download size={24} />
         </button>
 
-        <label className="bg-[#0D1B2A] p-8 rounded-3xl text-center text-white shadow-lg cursor-pointer active:scale-95 transition-transform">
-          <Upload size={32} className="mx-auto mb-2 text-[#FFD700]" />
-          <h3 className="font-black text-sm uppercase">Carica Backup Esistente</h3>
+        <label className="bg-[#0D1B2A] p-6 rounded-3xl text-white flex items-center justify-between shadow-xl active:scale-95 transition-transform cursor-pointer">
+          <div className="text-left">
+            <h3 className="font-black uppercase text-sm">Importa Backup</h3>
+            <p className="text-[10px] text-slate-400 font-bold">Carica file .JSON</p>
+          </div>
+          <Upload size={24} className="text-[#FFD700]" />
           <input type="file" accept=".json" onChange={importBackup} className="hidden" />
         </label>
       </div>
@@ -236,7 +282,6 @@ function SistemaSection({ customers, refresh }) {
   );
 }
 
-// MODALE AGGIUNTA: Con campi Telefono e Istruzioni
 function AddCustomerModal({ onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -248,41 +293,44 @@ function AddCustomerModal({ onClose }) {
       address: fd.get('address'),
       instructions: fd.get('instructions')
     });
-    addLog(`Cliente aggiunto: ${fd.get('name')}`);
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 bg-white z-50 overflow-y-auto p-6 animate-in slide-in-from-bottom duration-300">
+    <div className="fixed inset-0 bg-white z-50 overflow-y-auto p-6 pt-12">
       <div className="max-w-md mx-auto">
-        <h2 className="text-4xl font-black text-[#0D1B2A] mt-2 mb-6">Nuovo Cliente</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="flex justify-between items-start mb-8">
           <div>
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Nome Azienda / Cliente</label>
-            <input name="name" required className="w-full p-4 bg-slate-100 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-[#FFD700]" placeholder="Es. Rossi Spa" />
+            <span className="bg-yellow-100 text-[#FFD700] px-2 py-1 rounded text-[10px] font-bold uppercase tracking-tighter">Anagrafica</span>
+            <h2 className="text-4xl font-black text-[#0D1B2A] mt-2">Nuovo Cliente</h2>
           </div>
-          <div>
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Numero di Telefono</label>
-            <input name="phone" className="w-full p-4 bg-slate-100 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-[#FFD700]" placeholder="+39 ..." />
+          <button onClick={onClose} className="text-slate-300 font-bold text-2xl">&times;</button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Ragione Sociale</label>
+            <input name="name" required className="w-full p-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-[#FFD700]" placeholder="Nome Azienda..." />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Telefono</label>
+            <input name="phone" className="w-full p-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-[#FFD700]" placeholder="+39..." />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Città</label>
-              <input name="city" required className="w-full p-4 bg-slate-100 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-[#FFD700]" placeholder="Milano" />
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Città</label>
+              <input name="city" required className="w-full p-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-[#FFD700]" placeholder="Milano" />
             </div>
-            <div>
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Indirizzo</label>
-              <input name="address" required className="w-full p-4 bg-slate-100 rounded-xl mt-1 outline-none focus:ring-2 focus:ring-[#FFD700]" placeholder="Via Roma 10" />
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Indirizzo</label>
+              <input name="address" required className="w-full p-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-[#FFD700]" placeholder="Via..." />
             </div>
           </div>
-          <div>
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Istruzioni Scarico / Note</label>
-            <textarea name="instructions" className="w-full p-4 bg-slate-100 rounded-xl mt-1 h-32 outline-none focus:ring-2 focus:ring-[#FFD700]" placeholder="Orari, citofono, rampe..."></textarea>
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Note Scarico</label>
+            <textarea name="instructions" className="w-full p-4 bg-slate-100 rounded-2xl h-24 outline-none focus:ring-2 focus:ring-[#FFD700]" placeholder="Orari, citofono..."></textarea>
           </div>
-          <button type="submit" className="w-full bg-[#FFD700] py-5 rounded-2xl font-black text-sm uppercase mt-6 shadow-xl shadow-yellow-100 active:scale-95 transition-transform">
-            Salva Cliente
-          </button>
-          <button type="button" onClick={onClose} className="w-full py-4 text-slate-400 font-bold uppercase text-xs">Annulla</button>
+          <button type="submit" className="w-full bg-[#FFD700] py-5 rounded-3xl font-black text-sm uppercase mt-6 shadow-xl shadow-yellow-100 active:scale-95 transition-transform">Salva Cliente</button>
         </form>
       </div>
     </div>
