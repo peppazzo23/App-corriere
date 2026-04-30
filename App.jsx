@@ -3,7 +3,7 @@ import { db, addLog } from './db';
 import { 
   Users, ScanLine, Settings, Plus, Search, FileUp, 
   Download, Upload, Trash2, Bell, UserCircle, MapPin, 
-  Phone, FileText, CheckCircle2, X, Edit2, Save, Scan
+  Phone, FileText, CheckCircle2, X, Edit2, Save
 } from 'lucide-react';
 
 export default function App() {
@@ -20,7 +20,7 @@ export default function App() {
 
   useEffect(() => {
     fetchCustomers();
-  }, [showAddForm, selectedCustomer]);
+  }, [showAddForm, selectedCustomer, activeTab]);
 
   const filteredCustomers = customers.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -143,7 +143,7 @@ function ClientiSection({ customers, totalCount, searchTerm, setSearchTerm, onAd
   );
 }
 
-// --- SEZIONE SCANNER (RIPRISTINATA VERSIONE ORIGINALE) ---
+// --- SEZIONE SCANNER ---
 function ScannerSection({ customers }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -228,13 +228,74 @@ function ScannerSection({ customers }) {
   );
 }
 
-// --- MODALE DETTAGLIO E MODIFICA (AGGIUNTO CAMPO TELEFONO) ---
+// --- SEZIONE SISTEMA (RIPRISTINATA COMPLETA) ---
+function SistemaSection({ customers, refresh }) {
+  const exportBackup = () => {
+    if (customers.length === 0) return alert("Nessun dato da esportare.");
+    const dataStr = JSON.stringify(customers);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    const link = document.createElement('a');
+    link.href = dataUri;
+    link.download = `backup_giuseppe.json`;
+    link.click();
+  };
+
+  const importBackup = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (res) => {
+      try {
+        const data = JSON.parse(res.target.result);
+        await db.customers.bulkAdd(data);
+        alert("Backup ripristinato!");
+        refresh();
+      } catch (err) { alert("File non valido o dati duplicati."); }
+    };
+    reader.readAsText(file);
+  };
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-3xl font-black text-[#0D1B2A]">Sistema</h2>
+      <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Database Locale</p>
+        <p className="text-5xl font-black text-[#0D1B2A]">{customers.length} <span className="text-sm font-normal text-slate-400">Record</span></p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4">
+        <button onClick={exportBackup} className="bg-[#FFD700] p-6 rounded-3xl text-[#0D1B2A] flex items-center justify-between shadow-lg active:scale-95 transition-transform font-black uppercase text-sm">
+          <div>
+            <p>Esporta Backup</p>
+            <p className="text-[10px] opacity-60 font-bold normal-case">Salva archivio JSON</p>
+          </div>
+          <Download size={24} />
+        </button>
+
+        <label className="bg-[#0D1B2A] p-6 rounded-3xl text-white flex items-center justify-between shadow-xl active:scale-95 transition-transform cursor-pointer">
+          <div className="text-left font-black uppercase text-sm">
+            <p>Importa Backup</p>
+            <p className="text-[10px] text-slate-400 font-bold normal-case">Carica file JSON</p>
+          </div>
+          <Upload size={24} className="text-[#FFD700]" />
+          <input type="file" accept=".json" onChange={importBackup} className="hidden" />
+        </label>
+        
+        <button onClick={() => { if(confirm("Cancellare TUTTI i dati?")) db.customers.clear().then(refresh) }} className="text-red-400 text-[10px] font-bold uppercase mt-4 text-center">
+          Elimina tutti i dati definitivamente
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// --- MODALE DETTAGLIO ---
 function CustomerDetailModal({ customer, onClose, onRefresh }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState({...customer});
 
   const handleDelete = async () => {
-    if(confirm(`Eliminare definitivamente ${customer.name}?`)) {
+    if(confirm(`Eliminare ${customer.name}?`)) {
       await db.customers.delete(customer.id);
       onRefresh();
       onClose();
@@ -258,41 +319,14 @@ function CustomerDetailModal({ customer, onClose, onRefresh }) {
 
         {isEditing ? (
           <div className="space-y-4">
-            <input 
-              value={editedData.name} 
-              onChange={e => setEditedData({...editedData, name: e.target.value})}
-              className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-[#FFD700] font-bold uppercase"
-              placeholder="Nome"
-            />
-            <input 
-              value={editedData.phone || ''} 
-              onChange={e => setEditedData({...editedData, phone: e.target.value})}
-              className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-[#FFD700]"
-              placeholder="Telefono"
-            />
+            <input value={editedData.name} onChange={e => setEditedData({...editedData, name: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-[#FFD700] font-bold uppercase" placeholder="Nome" />
+            <input value={editedData.phone || ''} onChange={e => setEditedData({...editedData, phone: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-[#FFD700]" placeholder="Telefono" />
             <div className="grid grid-cols-2 gap-2">
-              <input 
-                value={editedData.city} 
-                onChange={e => setEditedData({...editedData, city: e.target.value})}
-                className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-[#FFD700]"
-                placeholder="Città"
-              />
-              <input 
-                value={editedData.address} 
-                onChange={e => setEditedData({...editedData, address: e.target.value})}
-                className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-[#FFD700]"
-                placeholder="Indirizzo"
-              />
+              <input value={editedData.city} onChange={e => setEditedData({...editedData, city: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-[#FFD700]" placeholder="Città" />
+              <input value={editedData.address} onChange={e => setEditedData({...editedData, address: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl outline-none focus:ring-2 focus:ring-[#FFD700]" placeholder="Indirizzo" />
             </div>
-            <textarea 
-              value={editedData.instructions || ''} 
-              onChange={e => setEditedData({...editedData, instructions: e.target.value})}
-              className="w-full p-4 bg-slate-50 rounded-2xl h-24 outline-none"
-              placeholder="Note scarico"
-            />
-            <button onClick={handleUpdate} className="w-full bg-[#0D1B2A] text-white py-4 rounded-2xl font-black uppercase flex items-center justify-center gap-2">
-              <Save size={18} /> Salva
-            </button>
+            <textarea value={editedData.instructions || ''} onChange={e => setEditedData({...editedData, instructions: e.target.value})} className="w-full p-4 bg-slate-50 rounded-2xl h-24 outline-none" placeholder="Note scarico" />
+            <button onClick={handleUpdate} className="w-full bg-[#0D1B2A] text-white py-4 rounded-2xl font-black uppercase flex items-center justify-center gap-2"><Save size={18} /> Salva</button>
           </div>
         ) : (
           <div className="space-y-6">
@@ -300,22 +334,15 @@ function CustomerDetailModal({ customer, onClose, onRefresh }) {
               <h2 className="text-3xl font-black text-[#0D1B2A] uppercase leading-tight">{customer.name}</h2>
               <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Dettaglio Cliente</p>
             </div>
-
             <div className="space-y-4">
               <div className="flex items-center gap-4">
                 <div className="bg-slate-100 p-3 rounded-xl text-slate-500"><MapPin size={20} /></div>
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Località</p>
-                  <p className="font-bold text-[#0D1B2A]">{customer.address}, {customer.city}</p>
-                </div>
+                <div><p className="text-[10px] font-bold text-slate-400 uppercase">Località</p><p className="font-bold text-[#0D1B2A]">{customer.address}, {customer.city}</p></div>
               </div>
               {customer.phone && (
                 <div className="flex items-center gap-4">
                   <div className="bg-slate-100 p-3 rounded-xl text-slate-500"><Phone size={20} /></div>
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Telefono</p>
-                    <p className="font-bold text-[#0D1B2A]">{customer.phone}</p>
-                  </div>
+                  <div><p className="text-[10px] font-bold text-slate-400 uppercase">Telefono</p><p className="font-bold text-[#0D1B2A]">{customer.phone}</p></div>
                 </div>
               )}
               {customer.instructions && (
@@ -325,43 +352,13 @@ function CustomerDetailModal({ customer, onClose, onRefresh }) {
                 </div>
               )}
             </div>
-
             <div className="grid grid-cols-2 gap-3 pt-4">
-              <button onClick={() => setIsEditing(true)} className="flex items-center justify-center gap-2 py-4 bg-slate-100 rounded-2xl text-[#0D1B2A] font-black text-xs uppercase">
-                <Edit2 size={16} /> Modifica
-              </button>
-              <button onClick={handleDelete} className="flex items-center justify-center gap-2 py-4 bg-red-50 rounded-2xl text-red-500 font-black text-xs uppercase">
-                <Trash2 size={16} /> Elimina
-              </button>
+              <button onClick={() => setIsEditing(true)} className="flex items-center justify-center gap-2 py-4 bg-slate-100 rounded-2xl text-[#0D1B2A] font-black text-xs uppercase"><Edit2 size={16} /> Modifica</button>
+              <button onClick={handleDelete} className="flex items-center justify-center gap-2 py-4 bg-red-50 rounded-2xl text-red-500 font-black text-xs uppercase"><Trash2 size={16} /> Elimina</button>
             </div>
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-// --- SISTEMA ---
-function SistemaSection({ customers, refresh }) {
-  const exportBackup = () => {
-    const dataStr = JSON.stringify(customers);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    const link = document.createElement('a');
-    link.href = dataUri;
-    link.download = `backup.json`;
-    link.click();
-  };
-
-  return (
-    <div className="space-y-6">
-      <h2 className="text-3xl font-black text-[#0D1B2A]">Sistema</h2>
-      <div className="bg-white p-8 rounded-[40px] shadow-sm border border-slate-100">
-        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-2">Totale Database</p>
-        <p className="text-5xl font-black text-[#0D1B2A]">{customers.length}</p>
-      </div>
-      <button onClick={exportBackup} className="w-full bg-[#FFD700] p-6 rounded-[30px] font-black uppercase text-sm flex items-center justify-between shadow-lg">
-        Esporta Backup <Download size={20} />
-      </button>
     </div>
   );
 }
