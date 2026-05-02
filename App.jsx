@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db, addLog } from './db';
+import Papa from 'papaparse'; // Libreria per i CSV
 import { 
   Users, ScanLine, Settings, Plus, Search, FileUp, 
   Download, Upload, Trash2, Bell, UserCircle, MapPin, 
@@ -228,31 +229,44 @@ function ScannerSection({ customers }) {
   );
 }
 
-// --- SEZIONE SISTEMA (RIPRISTINATA COMPLETA) ---
+// --- SEZIONE SISTEMA (CSV EDITION) ---
 function SistemaSection({ customers, refresh }) {
   const exportBackup = () => {
     if (customers.length === 0) return alert("Nessun dato da esportare.");
-    const dataStr = JSON.stringify(customers);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    
+    // Converte l'array di oggetti in stringa CSV
+    const csv = Papa.unparse(customers);
+    
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    link.href = dataUri;
-    link.download = `backup_giuseppe.json`;
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `backup_clienti_${new Date().toISOString().slice(0,10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
   };
 
   const importBackup = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (res) => {
-      try {
-        const data = JSON.parse(res.target.result);
-        await db.customers.bulkAdd(data);
-        alert("Backup ripristinato!");
-        refresh();
-      } catch (err) { alert("File non valido o dati duplicati."); }
-    };
-    reader.readAsText(file);
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        try {
+          // Pulizia dati importati (rimuove ID vecchi per evitare conflitti)
+          const cleanData = results.data.map(({id, ...rest}) => rest);
+          await db.customers.bulkAdd(cleanData);
+          alert(`Importati ${cleanData.length} clienti con successo!`);
+          refresh();
+        } catch (err) {
+          alert("Errore nell'importazione. Verifica che il CSV abbia le colonne: name, address, city, phone, instructions");
+        }
+      }
+    });
   };
 
   return (
@@ -266,19 +280,19 @@ function SistemaSection({ customers, refresh }) {
       <div className="grid grid-cols-1 gap-4">
         <button onClick={exportBackup} className="bg-[#FFD700] p-6 rounded-3xl text-[#0D1B2A] flex items-center justify-between shadow-lg active:scale-95 transition-transform font-black uppercase text-sm">
           <div>
-            <p>Esporta Backup</p>
-            <p className="text-[10px] opacity-60 font-bold normal-case">Salva archivio JSON</p>
+            <p>Esporta CSV</p>
+            <p className="text-[10px] opacity-60 font-bold normal-case">Salva per Excel/Fogli</p>
           </div>
           <Download size={24} />
         </button>
 
         <label className="bg-[#0D1B2A] p-6 rounded-3xl text-white flex items-center justify-between shadow-xl active:scale-95 transition-transform cursor-pointer">
           <div className="text-left font-black uppercase text-sm">
-            <p>Importa Backup</p>
-            <p className="text-[10px] text-slate-400 font-bold normal-case">Carica file JSON</p>
+            <p>Importa CSV</p>
+            <p className="text-[10px] text-slate-400 font-bold normal-case">Carica il tuo file .csv</p>
           </div>
           <Upload size={24} className="text-[#FFD700]" />
-          <input type="file" accept=".json" onChange={importBackup} className="hidden" />
+          <input type="file" accept=".csv" onChange={importBackup} className="hidden" />
         </label>
         
         <button onClick={() => { if(confirm("Cancellare TUTTI i dati?")) db.customers.clear().then(refresh) }} className="text-red-400 text-[10px] font-bold uppercase mt-4 text-center">
