@@ -118,7 +118,7 @@ function ClientiSection({ customers, totalCount, searchTerm, setSearchTerm, onAd
               onClick={() => onSelect(c)}
               className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex justify-between items-center active:scale-[0.98] transition-all cursor-pointer"
             >
-              <div className="min-w-0">
+              <div className="min-w-0 text-left">
                 <h4 className="font-black text-[#0D1B2A] uppercase truncate">{c.name}</h4>
                 <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
                   <MapPin size={12} className="text-[#FFD700] shrink-0" />
@@ -143,24 +143,12 @@ function ClientiSection({ customers, totalCount, searchTerm, setSearchTerm, onAd
   );
 }
 
-// --- SEZIONE SCANNER (VERSIONE CLOUD-READY) ---
+// --- SEZIONE SCANNER (FIX FINALE) ---
 function ScannerSection({ customers }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanResults, setScanResults] = useState([]);
   const fileInputRef = useRef(null);
-
-  // Funzione per caricare la libreria PDF esternamente per non rompere Vercel
-  const loadPdfJs = () => {
-    return new Promise((resolve) => {
-      if (window.pdfjsLib) return resolve(window.pdfjsLib);
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs';
-      script.type = 'module';
-      script.onload = () => resolve(window.pdfjsLib);
-      document.head.appendChild(script);
-    });
-  };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -175,18 +163,20 @@ function ScannerSection({ customers }) {
     setIsScanning(true);
 
     try {
-      // Carichiamo la libreria solo al momento del bisogno
-      const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs');
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.mjs';
+      // Importazione dinamica corretta per ambiente Browser/Vercel
+      const pdfjs = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs');
+      pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.mjs';
 
       const arrayBuffer = await selectedFile.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+      const pdf = await loadingTask.promise;
       let fullText = "";
 
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
-        fullText += content.items.map(item => item.str).join(" ") + "\n";
+        const strings = content.items.map(item => item.str);
+        fullText += strings.join(" ") + "\n";
       }
 
       const upperText = fullText.toUpperCase();
@@ -194,8 +184,8 @@ function ScannerSection({ customers }) {
 
       customers.forEach(customer => {
         const addr = customer.address.toUpperCase().trim();
-        [span_0](start_span)// Se l'indirizzo nel DB è contenuto nel testo del PDF[span_0](end_span)
         if (addr && upperText.includes(addr)) {
+          // Cerchiamo la riga intera nel PDF che contiene la via
           const lines = upperText.split(/\n| {3,}/);
           const pdfLine = lines.find(l => l.includes(addr)) || addr;
           
@@ -206,6 +196,7 @@ function ScannerSection({ customers }) {
         }
       });
 
+      // Rimuoviamo i duplicati
       const uniqueMatches = Array.from(new Set(foundMatches.map(a => JSON.stringify(a))))
         .map(e => JSON.parse(e));
 
@@ -213,8 +204,8 @@ function ScannerSection({ customers }) {
       if (uniqueMatches.length === 0) alert("Nessuna via corrispondente trovata.");
       
     } catch (error) {
-      console.error("Errore PDF:", error);
-      alert("Errore nella lettura del PDF. Riprova.");
+      console.error("Dettaglio Errore:", error);
+      alert("Errore tecnico: " + error.message);
     } finally {
       setIsScanning(false);
     }
@@ -238,18 +229,20 @@ function ScannerSection({ customers }) {
       <button 
         onClick={handleStartScan}
         disabled={!selectedFile || isScanning}
-        className="w-full py-5 bg-[#FFD700] text-[#0D1B2A] rounded-[24px] font-black uppercase shadow-lg disabled:opacity-50"
+        className="w-full py-5 bg-[#FFD700] text-[#0D1B2A] rounded-[24px] font-black uppercase shadow-lg active:scale-95 disabled:opacity-50"
       >
         {isScanning ? 'Analisi in corso...' : 'Inizia Confronto'}
       </button>
 
       {scanResults.length > 0 && (
         <div className="space-y-4 pb-10">
-          <h3 className="font-bold text-slate-400 text-[10px] uppercase tracking-widest italic">Risultati:</h3>
+          <h3 className="font-bold text-slate-400 text-[10px] uppercase tracking-widest italic text-left">Corrispondenze rilevate:</h3>
           <div className="grid gap-4">
             {scanResults.map((res, index) => (
               <div key={index} className="bg-white p-5 rounded-[32px] border border-slate-100 shadow-sm text-left">
-                <p className="font-black text-[#0D1B2A] text-sm uppercase mb-3 leading-tight">{res.pdfStreet}</p>
+                <p className="font-black text-[#0D1B2A] text-sm uppercase mb-3 leading-tight">
+                  {res.pdfStreet}
+                </p>
                 <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border-l-4 border-[#FFD700]">
                   <CheckCircle2 className="text-[#FFD700]" size={20} />
                   <div>
@@ -290,7 +283,7 @@ function SistemaSection({ customers, refresh }) {
           await db.customers.bulkAdd(cleanData);
           alert(`Importati ${cleanData.length} clienti!`);
           refresh();
-        } catch (err) { alert("Errore CSV."); }
+        } catch (err) { alert("Errore importazione CSV."); }
       }
     });
   };
@@ -299,8 +292,8 @@ function SistemaSection({ customers, refresh }) {
     <div className="space-y-6">
       <h2 className="text-3xl font-black text-[#0D1B2A]">Sistema</h2>
       <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm text-center">
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Stato Archivio</p>
         <p className="text-5xl font-black text-[#0D1B2A]">{customers.length}</p>
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Clienti in Memoria</p>
       </div>
 
       <div className="grid gap-4">
@@ -314,12 +307,16 @@ function SistemaSection({ customers, refresh }) {
           <Upload size={24} className="text-[#FFD700]" />
           <input type="file" accept=".csv" onChange={importBackup} className="hidden" />
         </label>
+        
+        <button onClick={() => { if(confirm("Cancellare TUTTI i dati?")) db.customers.clear().then(refresh) }} className="text-red-400 text-[10px] font-bold uppercase mt-8 text-center w-full">
+          Elimina database definitivamente
+        </button>
       </div>
     </div>
   );
 }
 
-// --- MODALE DETTAGLIO ---
+// --- MODALI ---
 function CustomerDetailModal({ customer, onClose, onRefresh }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState({...customer});
@@ -338,7 +335,7 @@ function CustomerDetailModal({ customer, onClose, onRefresh }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-end justify-center">
-      <div className="bg-white w-full max-w-md rounded-t-[40px] p-8 shadow-2xl animate-in slide-in-from-bottom duration-300">
+      <div className="bg-white w-full max-w-md rounded-t-[40px] p-8 shadow-2xl">
         <div className="flex justify-between items-center mb-6">
           <div className="bg-yellow-50 p-3 rounded-2xl text-[#FFD700]"><UserCircle size={24} /></div>
           <button onClick={onClose} className="bg-slate-100 p-2 rounded-full text-slate-400"><X size={20} /></button>
@@ -356,12 +353,12 @@ function CustomerDetailModal({ customer, onClose, onRefresh }) {
             <button onClick={handleUpdate} className="w-full bg-[#0D1B2A] text-white py-4 rounded-2xl font-black uppercase"><Save size={18} className="inline mr-2"/> Salva</button>
           </div>
         ) : (
-          <div className="space-y-6">
-            <div className="text-left">
+          <div className="space-y-6 text-left">
+            <div>
               <h2 className="text-3xl font-black text-[#0D1B2A] uppercase leading-tight">{customer.name}</h2>
               <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Scheda Cliente</p>
             </div>
-            <div className="space-y-4 text-left">
+            <div className="space-y-4">
               <div className="flex items-center gap-4">
                 <MapPin size={20} className="text-slate-300" />
                 <div><p className="text-[10px] font-bold text-slate-400 uppercase">Indirizzo</p><p className="font-bold">{customer.address}, {customer.city}</p></div>
@@ -390,7 +387,6 @@ function CustomerDetailModal({ customer, onClose, onRefresh }) {
   );
 }
 
-// --- MODALE AGGIUNTA ---
 function AddCustomerModal({ onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
