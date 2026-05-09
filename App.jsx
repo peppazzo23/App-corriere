@@ -145,80 +145,114 @@ function ClientiSection({ customers, totalCount, searchTerm, setSearchTerm, onAd
 }
 
 // --- SEZIONE SCANNER ---
+
 function ScannerSection({ customers }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
-  const [results, setResults] = useState([]);
+  const [scanResults, setScanResults] = useState([]); // Useremo un oggetto per mappare via -> cliente
   const fileInputRef = useRef(null);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file && file.type === "application/pdf") {
       setSelectedFile(file);
-      setResults([]); 
+      setScanResults([]);
     }
   };
 
   const handleStartScan = () => {
-    if (!selectedFile) return;
+    if (!selectedFile || customers.length === 0) return;
     setIsScanning(true);
-    setTimeout(() => {
-      setResults([...customers]); 
-      setIsScanning(false);
-      addLog(`Scansione completa: ${selectedFile.name}`);
-    }, 2000);
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const content = event.target.result;
+      const text = content.toString().toUpperCase(); // Normalizziamo tutto in maiuscolo per il confronto
+
+      // 1. Identifichiamo tutte le vie univoche presenti nel PDF
+      // Cerchiamo pattern comuni come "VIA", "VIALE", "CORSO", "TRAVERSA", "CONTRADA"
+      const viaKeywords = ["VIA", "VIALE", "CORSO", "TRAVERSA", "CONTRADA", "PIAZZA"];
+      
+      // Dividiamo il testo in righe e cerchiamo le vie
+      const lines = text.split(/[\n\r]+| {2,}/); 
+      const foundMatches = [];
+
+      lines.forEach(line => {
+        const cleanLine = line.trim();
+        if (viaKeywords.some(key => cleanLine.includes(key))) {
+          
+          // Cerchiamo se questa riga del PDF corrisponde a un indirizzo nel nostro DB
+          const matchingCustomer = customers.find(c => 
+            cleanLine.includes(c.address.toUpperCase()) || 
+            c.address.toUpperCase().includes(cleanLine)
+          );
+
+          if (matchingCustomer) {
+            foundMatches.push({
+              pdfStreet: cleanLine, // La via come scritta nel PDF (per il grassetto)
+              customer: matchingCustomer
+            });
+          }
+        }
+      });
+
+      // Rimuoviamo eventuali duplicati (stessa via trovata più volte)
+      const uniqueMatches = Array.from(new Set(foundMatches.map(a => a.pdfStreet)))
+        .map(street => foundMatches.find(a => a.pdfStreet === street));
+
+      setTimeout(() => {
+        setScanResults(uniqueMatches);
+        setIsScanning(false);
+        if (uniqueMatches.length === 0) alert("Nessuna via corrispondente trovata.");
+      }, 1200);
+    };
+
+    reader.readAsBinaryString(selectedFile);
   };
 
   return (
     <div className="space-y-6">
       <h2 className="text-3xl font-black text-[#0D1B2A]">Scanner Consegne</h2>
+      
+      {/* Area Upload */}
       <div 
         onClick={() => fileInputRef.current.click()}
-        className={`bg-white border-2 border-dashed ${selectedFile ? 'border-[#FFD700] bg-yellow-50' : 'border-slate-200'} rounded-[40px] p-8 text-center cursor-pointer transition-all shadow-sm`}
+        className={`bg-white border-2 border-dashed ${selectedFile ? 'border-[#FFD700] bg-yellow-50' : 'border-slate-200'} rounded-[40px] p-8 text-center cursor-pointer shadow-sm`}
       >
         <input type="file" accept=".pdf" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-        {selectedFile ? (
-          <>
-            <FileText size={40} className="mx-auto text-[#FFD700] mb-2" />
-            <p className="font-bold text-[#0D1B2A] text-xs uppercase truncate px-4">{selectedFile.name}</p>
-          </>
-        ) : (
-          <>
-            <FileUp size={40} className="mx-auto text-slate-300 mb-2" />
-            <h3 className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Sfoglia PDF</h3>
-          </>
-        )}
+        <FileUp size={40} className={`mx-auto mb-2 ${selectedFile ? 'text-[#FFD700]' : 'text-slate-300'}`} />
+        <p className="font-bold text-[#0D1B2A] text-xs uppercase">
+          {selectedFile ? selectedFile.name : 'Seleziona Lista Consegne PDF'}
+        </p>
       </div>
 
-      <div className="bg-[#0D1B2A] rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-2 h-2 bg-[#FFD700] rounded-full animate-pulse"></div>
-          <h3 className="text-xs font-bold uppercase tracking-widest text-[#FFD700]">Intelligence</h3>
-        </div>
-        <h2 className="text-2xl font-black mb-2 leading-tight">Analisi Incrociata</h2>
-        <p className="text-xs text-slate-400 mb-6 leading-relaxed">Confronto automatico con l'intero database locale.</p>
-        <button 
-          onClick={handleStartScan}
-          disabled={!selectedFile || isScanning}
-          className={`w-full py-4 rounded-xl font-black text-sm uppercase shadow-lg transition-all ${isScanning ? 'bg-slate-700 text-slate-400' : 'bg-[#FFD700] text-[#0D1B2A] active:scale-95'}`}
-        >
-          {isScanning ? 'Elaborazione...' : 'Confronta intero Archivio'}
-        </button>
-      </div>
+      <button 
+        onClick={handleStartScan}
+        disabled={!selectedFile || isScanning}
+        className="w-full py-4 bg-[#FFD700] text-[#0D1B2A] rounded-xl font-black uppercase shadow-lg active:scale-95 disabled:opacity-50"
+      >
+        {isScanning ? 'Analisi in corso...' : 'Inizia Confronto'}
+      </button>
 
-      {results.length > 0 && (
+      {/* Visualizzazione Risultati */}
+      {scanResults.length > 0 && (
         <div className="space-y-4 pb-10">
-          <div className="flex justify-between items-center px-1">
-            <h3 className="font-bold text-slate-400 text-[10px] uppercase tracking-widest">Risultati ({results.length})</h3>
-            <button onClick={() => setResults([])} className="text-red-400 text-[10px] font-bold uppercase">Pulisci</button>
-          </div>
-          <div className="grid gap-3">
-            {results.map(r => (
-              <div key={r.id} className="bg-white p-4 rounded-2xl border-l-4 border-[#FFD700] shadow-sm flex items-start gap-3 animate-in fade-in">
-                <CheckCircle2 className="text-[#FFD700] mt-1 shrink-0" size={18} />
-                <div className="flex-1 min-w-0">
-                  <p className="font-black text-[#0D1B2A] text-sm uppercase truncate">{r.name}</p>
-                  <p className="text-[11px] text-slate-500 font-medium">{r.address}, {r.city}</p>
+          <h3 className="font-bold text-slate-400 text-[10px] uppercase tracking-widest">Corrispondenze trovate:</h3>
+          <div className="grid gap-4">
+            {scanResults.map((res, index) => (
+              <div key={index} className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+                {/* Via del PDF in grassetto */}
+                <p className="font-black text-[#0D1B2A] text-sm uppercase mb-2">
+                  {res.pdfStreet}
+                </p>
+                
+                {/* Dettaglio Cliente dal database */}
+                <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl border-l-4 border-[#FFD700]">
+                  <CheckCircle2 className="text-[#FFD700]" size={18} />
+                  <div>
+                    <p className="text-xs font-bold text-slate-700 uppercase">{res.customer.name}</p>
+                    <p className="text-[10px] text-slate-500">{res.customer.address}, {res.customer.city}</p>
+                  </div>
                 </div>
               </div>
             ))}
