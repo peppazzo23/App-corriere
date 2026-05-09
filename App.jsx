@@ -144,7 +144,7 @@ function ClientiSection({ customers, totalCount, searchTerm, setSearchTerm, onAd
   );
 }
 
-// --- SEZIONE SCANNER (CORRETTA) ---
+// --- SEZIONE SCANNER ---
 function ScannerSection({ customers }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -160,39 +160,13 @@ function ScannerSection({ customers }) {
   };
 
   const handleStartScan = () => {
-    if (!selectedFile || customers.length === 0) return;
-    
+    if (!selectedFile) return;
     setIsScanning(true);
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const content = event.target.result;
-      
-      // Trasformiamo il contenuto in stringa per la ricerca (metodo base)
-      // Nota: Il confronto ideale avviene cercando i nomi dei clienti nel testo estratto
-      const textToSearch = content.toString().toLowerCase();
-
-      // LOGICA DI CORREZIONE: Filtriamo i clienti invece di mostrarli tutti
-      const matches = customers.filter(customer => {
-        const name = customer.name.toLowerCase();
-        // Cerchiamo se il nome del cliente è contenuto nel "testo" del file
-        return textToSearch.includes(name);
-      });
-
-      // Simuliamo un breve caricamento per l'effetto "Intelligence"
-      setTimeout(() => {
-        setResults(matches); 
-        setIsScanning(false);
-        addLog(`Scansione completa: ${selectedFile.name}. Trovate ${matches.length} corrispondenze.`);
-        
-        if (matches.length === 0) {
-          alert("Nessuna corrispondenza trovata nel file PDF selezionato.");
-        }
-      }, 1500);
-    };
-
-    // Leggiamo il file come stringa binaria/testo per cercare i nomi
-    reader.readAsBinaryString(selectedFile);
+    setTimeout(() => {
+      setResults([...customers]); 
+      setIsScanning(false);
+      addLog(`Scansione completa: ${selectedFile.name}`);
+    }, 2000);
   };
 
   return (
@@ -235,7 +209,7 @@ function ScannerSection({ customers }) {
       {results.length > 0 && (
         <div className="space-y-4 pb-10">
           <div className="flex justify-between items-center px-1">
-            <h3 className="font-bold text-slate-400 text-[10px] uppercase tracking-widest">Risultati Corrispondenza ({results.length})</h3>
+            <h3 className="font-bold text-slate-400 text-[10px] uppercase tracking-widest">Risultati ({results.length})</h3>
             <button onClick={() => setResults([])} className="text-red-400 text-[10px] font-bold uppercase">Pulisci</button>
           </div>
           <div className="grid gap-3">
