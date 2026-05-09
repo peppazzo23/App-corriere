@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { db, addLog } from './db';
+import { db } from './db';
 import Papa from 'papaparse';
 import { 
   Users, ScanLine, Settings, Plus, Search, FileUp, 
   Download, Upload, Trash2, Bell, UserCircle, MapPin, 
   Phone, CheckCircle2, X, Edit2, Save, ChevronRight
 } from 'lucide-react';
-import * as pdfjsLib from 'pdfjs-dist';
 
-// Configurazione Worker PDF.js via CDN (essenziale per far funzionare la libreria su browser/mobile)
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Importazione ottimizzata per evitare errori di build su Vercel
+import * as pdfjsLib from 'pdfjs-dist/build/pdf';
+
+// Carichiamo il worker da un link esterno (CDN) per non appesantire il progetto
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.mjs';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('clienti');
@@ -147,7 +149,7 @@ function ClientiSection({ customers, totalCount, searchTerm, setSearchTerm, onAd
   );
 }
 
-// --- SEZIONE SCANNER (VERSIONE OTTIMIZZATA CON PDF.JS) ---
+// --- SEZIONE SCANNER (VERSIONE OTTIMIZZATA PER PDF) ---
 function ScannerSection({ customers }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -168,14 +170,13 @@ function ScannerSection({ customers }) {
 
     try {
       const arrayBuffer = await selectedFile.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const pdf = await loadingTask.promise;
       let fullText = "";
 
-      // Estraiamo il testo da ogni pagina
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
-        // Uniamo le stringhe della pagina
         const strings = content.items.map(item => item.str);
         fullText += strings.join(" ") + "\n";
       }
@@ -183,11 +184,9 @@ function ScannerSection({ customers }) {
       const upperText = fullText.toUpperCase();
       const foundMatches = [];
 
-      // Confronto: cerchiamo ogni cliente del DB all'interno del testo del PDF
       customers.forEach(customer => {
         const addr = customer.address.toUpperCase().trim();
         if (addr && upperText.includes(addr)) {
-          // Troviamo la riga specifica nel PDF che contiene l'indirizzo per mostrarla in grassetto
           const lines = upperText.split(/\n| {3,}/);
           const pdfLine = lines.find(l => l.includes(addr)) || addr;
           
@@ -198,7 +197,6 @@ function ScannerSection({ customers }) {
         }
       });
 
-      // Rimuoviamo duplicati
       const uniqueMatches = Array.from(new Set(foundMatches.map(a => JSON.stringify(a))))
         .map(e => JSON.parse(e));
 
@@ -207,7 +205,7 @@ function ScannerSection({ customers }) {
       
     } catch (error) {
       console.error("Errore PDF:", error);
-      alert("Errore durante la lettura del PDF. Assicurati che sia un file valido.");
+      alert("Errore nella lettura del PDF.");
     } finally {
       setIsScanning(false);
     }
@@ -231,7 +229,7 @@ function ScannerSection({ customers }) {
       <button 
         onClick={handleStartScan}
         disabled={!selectedFile || isScanning}
-        className="w-full py-5 bg-[#FFD700] text-[#0D1B2A] rounded-[24px] font-black uppercase shadow-lg shadow-yellow-100 active:scale-95 disabled:opacity-50 transition-all"
+        className="w-full py-5 bg-[#FFD700] text-[#0D1B2A] rounded-[24px] font-black uppercase shadow-lg shadow-yellow-100 active:scale-95 disabled:opacity-50"
       >
         {isScanning ? 'Analisi in corso...' : 'Inizia Confronto'}
       </button>
@@ -241,7 +239,7 @@ function ScannerSection({ customers }) {
           <h3 className="font-bold text-slate-400 text-[10px] uppercase tracking-widest italic">Corrispondenze rilevate:</h3>
           <div className="grid gap-4">
             {scanResults.map((res, index) => (
-              <div key={index} className="bg-white p-5 rounded-[32px] border border-slate-100 shadow-sm animate-in fade-in slide-in-from-bottom-2">
+              <div key={index} className="bg-white p-5 rounded-[32px] border border-slate-100 shadow-sm">
                 <p className="font-black text-[#0D1B2A] text-sm uppercase mb-3 leading-tight">
                   {res.pdfStreet}
                 </p>
@@ -271,10 +269,7 @@ function SistemaSection({ customers, refresh }) {
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
     link.setAttribute('download', `archivio_${new Date().toISOString().slice(0,10)}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
   };
 
   const importBackup = (e) => {
@@ -291,7 +286,7 @@ function SistemaSection({ customers, refresh }) {
           alert(`Importati ${cleanData.length} clienti!`);
           refresh();
         } catch (err) {
-          alert("Errore importazione. Verifica il formato CSV.");
+          alert("Errore importazione CSV.");
         }
       }
     });
@@ -303,7 +298,6 @@ function SistemaSection({ customers, refresh }) {
       <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm text-center">
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Stato Archivio</p>
         <p className="text-5xl font-black text-[#0D1B2A]">{customers.length}</p>
-        <p className="text-xs text-slate-400 mt-1 font-bold uppercase">Clienti Salvati</p>
       </div>
 
       <div className="grid gap-4">
@@ -318,7 +312,7 @@ function SistemaSection({ customers, refresh }) {
           <input type="file" accept=".csv" onChange={importBackup} className="hidden" />
         </label>
         
-        <button onClick={() => { if(confirm("Cancellare TUTTI i dati?")) db.customers.clear().then(refresh) }} className="text-red-400 text-[10px] font-bold uppercase mt-8 text-center">
+        <button onClick={() => { if(confirm("Cancellare TUTTI i dati?")) db.customers.clear().then(refresh) }} className="text-red-400 text-[10px] font-bold uppercase mt-8 text-center w-full">
           Elimina database definitivamente
         </button>
       </div>
@@ -345,7 +339,7 @@ function CustomerDetailModal({ customer, onClose, onRefresh }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-end justify-center">
-      <div className="bg-white w-full max-w-md rounded-t-[40px] p-8 shadow-2xl animate-in slide-in-from-bottom duration-300">
+      <div className="bg-white w-full max-w-md rounded-t-[40px] p-8 shadow-2xl">
         <div className="flex justify-between items-center mb-6">
           <div className="bg-yellow-50 p-3 rounded-2xl text-[#FFD700]"><UserCircle size={24} /></div>
           <button onClick={onClose} className="bg-slate-100 p-2 rounded-full text-slate-400"><X size={20} /></button>
@@ -366,9 +360,9 @@ function CustomerDetailModal({ customer, onClose, onRefresh }) {
           <div className="space-y-6">
             <div>
               <h2 className="text-3xl font-black text-[#0D1B2A] uppercase leading-tight">{customer.name}</h2>
-              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Scheda Cliente</p>
+              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest text-left">Scheda Cliente</p>
             </div>
-            <div className="space-y-4">
+            <div className="space-y-4 text-left">
               <div className="flex items-center gap-4">
                 <MapPin size={20} className="text-slate-300" />
                 <div><p className="text-[10px] font-bold text-slate-400 uppercase">Indirizzo</p><p className="font-bold">{customer.address}, {customer.city}</p></div>
@@ -411,7 +405,7 @@ function AddCustomerModal({ onClose }) {
 
   return (
     <div className="fixed inset-0 bg-white z-[100] p-6 pt-12 overflow-y-auto">
-      <div className="max-w-md mx-auto">
+      <div className="max-w-md mx-auto text-left">
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-4xl font-black text-[#0D1B2A]">Nuovo</h2>
           <button onClick={onClose} className="bg-slate-100 p-3 rounded-full"><X /></button>
