@@ -98,27 +98,26 @@ function NavButton({ active, onClick, icon, label }) {
   );
 }
 
-// --- SEZIONE CLIENTI ---
 function ClientiSection({ customers, totalCount, searchTerm, setSearchTerm, onAdd, onSelect }) {
   const shouldShowList = searchTerm.length > 0 || totalCount < 5;
   return (
     <div className="space-y-6">
       <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
-        <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Anagrafica</h2>
+        <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 italic">Anagrafica</h2>
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input 
             type="text" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Cerca per nome o via..." 
+            placeholder="Cerca cliente o via..." 
             className="w-full pl-12 pr-4 py-4 bg-slate-100 rounded-2xl text-sm outline-none focus:ring-2 focus:ring-[#FFD700] font-medium" 
           />
         </div>
       </div>
 
       <div className="bg-[#0D1B2A] rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
-        <p className="text-[10px] font-bold text-[#FFD700] tracking-widest uppercase mb-1">Account in Archivio</p>
+        <p className="text-[10px] font-bold text-[#FFD700] tracking-widest uppercase mb-1">Archivio</p>
         <h2 className="text-5xl font-black text-left">{totalCount}</h2>
       </div>
 
@@ -143,7 +142,7 @@ function ClientiSection({ customers, totalCount, searchTerm, setSearchTerm, onAd
         ) : (
           <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-slate-200">
             <Search size={30} className="mx-auto text-slate-200 mb-2" />
-            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest px-10">Cerca un cliente per visualizzarlo</p>
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest px-10 italic">Cerca un cliente</p>
           </div>
         )}
       </div>
@@ -155,7 +154,6 @@ function ClientiSection({ customers, totalCount, searchTerm, setSearchTerm, onAd
   );
 }
 
-// --- SEZIONE SCANNER ---
 function ScannerSection({ customers, onOpenDetail, onAddNew }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -188,7 +186,6 @@ function ScannerSection({ customers, onOpenDetail, onAddNew }) {
         fullText += content.items.map(item => item.str).join(" ") + "\n";
       }
 
-      [span_6](start_span)// Regex per estrarre indirizzi (Via, Viale, ecc + nome + civico)[span_6](end_span)
       const addressRegex = /(?:VIA|VIALE|CONTRADA|TRAVERSA|PIAZZA)\s+[^,0-9\n]+[\s\d\/]+(?:\s*[A-Z])?/gi;
       const foundAddresses = Array.from(new Set(fullText.match(addressRegex) || []))
         .map(addr => addr.trim().toUpperCase());
@@ -220,7 +217,7 @@ function ScannerSection({ customers, onOpenDetail, onAddNew }) {
         <input type="file" accept=".pdf" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
         <FileUp size={40} className={`mx-auto mb-2 ${selectedFile ? 'text-[#FFD700]' : 'text-slate-300'}`} />
         <p className="font-bold text-[#0D1B2A] text-xs uppercase text-center">
-          {selectedFile ? selectedFile.name : 'Carica Lista PDF'}
+          {selectedFile ? selectedFile.name : 'Carica PDF'}
         </p>
       </div>
 
@@ -229,12 +226,12 @@ function ScannerSection({ customers, onOpenDetail, onAddNew }) {
         disabled={!selectedFile || isScanning}
         className="w-full py-5 bg-[#FFD700] text-[#0D1B2A] rounded-[24px] font-black uppercase shadow-lg active:scale-95 disabled:opacity-50"
       >
-        {isScanning ? 'Analisi in corso...' : 'Inizia Confronto'}
+        {isScanning ? 'Analisi...' : 'Inizia Confronto'}
       </button>
 
       {scanResults.length > 0 && (
         <div className="space-y-4 pb-10">
-          <h3 className="font-bold text-slate-400 text-[10px] uppercase tracking-widest italic text-left">Risultati:</h3>
+          <h3 className="font-bold text-slate-400 text-[10px] uppercase tracking-widest italic text-left">Vie Rilevate:</h3>
           <div className="grid gap-4">
             {scanResults.map((res, index) => (
               <div 
@@ -249,14 +246,14 @@ function ScannerSection({ customers, onOpenDetail, onAddNew }) {
                     <CheckCircle2 className="text-[#FFD700]" size={20} />
                     <div className="min-w-0">
                       <p className="text-xs font-black text-slate-700 uppercase truncate">{res.customer.name}</p>
-                      <p className="text-[10px] text-slate-500 font-medium">Tocca per i dettagli</p>
+                      <p className="text-[10px] text-slate-500 font-medium italic">Tocca per dettagli</p>
                     </div>
                   </div>
                 ) : (
                   <div className="flex items-center justify-between bg-slate-50 p-4 rounded-2xl border-l-4 border-slate-300">
                     <div className="flex items-center gap-3">
                       <X className="text-slate-300" size={20} />
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Nuovo Cliente</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter italic">Non in archivio</p>
                     </div>
                     <div className="bg-[#FFD700] p-1 rounded-full text-white"><Plus size={14} /></div>
                   </div>
@@ -270,7 +267,6 @@ function ScannerSection({ customers, onOpenDetail, onAddNew }) {
   );
 }
 
-// --- SEZIONE SISTEMA ---
 function SistemaSection({ customers, refresh }) {
   const exportBackup = () => {
     if (customers.length === 0) return alert("Nessun dato da esportare.");
@@ -278,7 +274,7 @@ function SistemaSection({ customers, refresh }) {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `archivio_giuseppe.csv`;
+    link.download = `backup_archivio.csv`;
     link.click();
   };
 
@@ -292,9 +288,9 @@ function SistemaSection({ customers, refresh }) {
         try {
           const cleanData = results.data.map(({id, ...rest}) => rest);
           await db.customers.bulkAdd(cleanData);
-          alert(`Importati ${cleanData.length} clienti!`);
+          alert(`Caricati ${cleanData.length} clienti!`);
           refresh();
-        } catch (err) { alert("Errore importazione CSV."); }
+        } catch (err) { alert("Errore caricamento CSV."); }
       }
     });
   };
@@ -303,7 +299,7 @@ function SistemaSection({ customers, refresh }) {
     <div className="space-y-6">
       <h2 className="text-3xl font-black text-[#0D1B2A] text-left">Sistema</h2>
       <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm text-center">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Stato Archivio</p>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 italic">Clienti Totali</p>
         <p className="text-5xl font-black text-[#0D1B2A]">{customers.length}</p>
       </div>
 
@@ -313,21 +309,20 @@ function SistemaSection({ customers, refresh }) {
           <Download size={24} />
         </button>
 
-        <label className="bg-[#0D1B2A] p-6 rounded-3xl text-white flex items-center justify-between shadow-xl cursor-pointer font-black uppercase text-sm">
+        <label className="bg-[#0D1B2A] p-6 rounded-3xl text-white flex items-center justify-between shadow-xl cursor-pointer font-black uppercase text-sm text-left">
           <span>Importa CSV</span>
           <Upload size={24} className="text-[#FFD700]" />
           <input type="file" accept=".csv" onChange={importBackup} className="hidden" />
         </label>
         
-        <button onClick={() => { if(confirm("Cancellare TUTTI i dati?")) db.customers.clear().then(refresh) }} className="text-red-400 text-[10px] font-bold uppercase mt-8 text-center w-full">
-          Elimina database definitivamente
+        <button onClick={() => { if(confirm("Cancellare TUTTI i dati?")) db.customers.clear().then(refresh) }} className="text-red-400 text-[10px] font-bold uppercase mt-8 text-center w-full italic">
+          Svuota Archivio Definitivamente
         </button>
       </div>
     </div>
   );
 }
 
-// --- MODALI ---
 function CustomerDetailModal({ customer, onClose, onRefresh }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState({...customer});
@@ -367,22 +362,22 @@ function CustomerDetailModal({ customer, onClose, onRefresh }) {
           <div className="space-y-6 text-left">
             <div>
               <h2 className="text-3xl font-black text-[#0D1B2A] uppercase leading-tight">{customer.name}</h2>
-              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Scheda Cliente</p>
+              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest italic">Info Cliente</p>
             </div>
             <div className="space-y-4">
               <div className="flex items-center gap-4">
                 <MapPin size={20} className="text-slate-300" />
-                <div><p className="text-[10px] font-bold text-slate-400 uppercase">Indirizzo</p><p className="font-bold">{customer.address}, {customer.city}</p></div>
+                <div><p className="text-[10px] font-bold text-slate-400 uppercase italic">Indirizzo</p><p className="font-bold">{customer.address}, {customer.city}</p></div>
               </div>
               {customer.phone && (
                 <div className="flex items-center gap-4">
                   <Phone size={20} className="text-slate-300" />
-                  <div><p className="text-[10px] font-bold text-slate-400 uppercase">Contatto</p><p className="font-bold">{customer.phone}</p></div>
+                  <div><p className="text-[10px] font-bold text-slate-400 uppercase italic">Telefono</p><p className="font-bold">{customer.phone}</p></div>
                 </div>
               )}
               {customer.instructions && (
                 <div className="bg-yellow-50 p-5 rounded-3xl border border-yellow-100">
-                  <p className="text-[10px] font-black text-[#FFD700] uppercase mb-1">Note Scarico:</p>
+                  <p className="text-[10px] font-black text-[#FFD700] uppercase mb-1 italic">Note:</p>
                   <p className="text-sm font-medium">{customer.instructions}</p>
                 </div>
               )}
@@ -420,7 +415,7 @@ function AddCustomerModal({ initialAddress, onClose }) {
           <button onClick={onClose} className="bg-slate-100 p-3 rounded-full"><X /></button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4 pb-10">
-          <input name="name" required className="w-full p-5 bg-slate-50 rounded-[25px] font-bold uppercase" placeholder="RAGIONE SOCIALE" />
+          <input name="name" required className="w-full p-5 bg-slate-50 rounded-[25px] font-bold uppercase" placeholder="NOME CLIENTE" />
           <input name="phone" className="w-full p-5 bg-slate-50 rounded-[25px]" placeholder="TELEFONO" />
           <div className="grid grid-cols-2 gap-3">
             <input name="city" required className="w-full p-5 bg-slate-50 rounded-[25px]" placeholder="CITTÀ" defaultValue="Reggio Calabria" />
@@ -430,11 +425,11 @@ function AddCustomerModal({ initialAddress, onClose }) {
               value={address} 
               onChange={(e) => setAddress(e.target.value)} 
               className="w-full p-5 bg-slate-50 rounded-[25px]" 
-              placeholder="VIA (ES: VIA ROMA 1)" 
+              placeholder="VIA E CIVICO" 
             />
           </div>
-          <textarea name="instructions" className="w-full p-5 bg-slate-50 rounded-[25px] h-32" placeholder="NOTE SCARICO..."></textarea>
-          <button type="submit" className="w-full bg-[#FFD700] py-5 rounded-[30px] font-black uppercase shadow-lg">Salva Cliente</button>
+          <textarea name="instructions" className="w-full p-5 bg-slate-50 rounded-[25px] h-32" placeholder="NOTE DI CONSEGNA..."></textarea>
+          <button type="submit" className="w-full bg-[#FFD700] py-5 rounded-[30px] font-black uppercase shadow-lg">Registra Cliente</button>
         </form>
       </div>
     </div>
