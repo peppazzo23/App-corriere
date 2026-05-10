@@ -13,6 +13,7 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [prefilledAddress, setPrefilledAddress] = useState("");
 
   const fetchCustomers = async () => {
     const data = await db.customers.toArray();
@@ -48,11 +49,17 @@ export default function App() {
             totalCount={customers.length}
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
-            onAdd={() => setShowAddForm(true)} 
+            onAdd={() => { setPrefilledAddress(""); setShowAddForm(true); }} 
             onSelect={(c) => setSelectedCustomer(c)}
           />
         )}
-        {activeTab === 'scanner' && <ScannerSection customers={customers} />}
+        {activeTab === 'scanner' && (
+          <ScannerSection 
+            customers={customers} 
+            onOpenDetail={(c) => setSelectedCustomer(c)}
+            onAddNew={(addr) => { setPrefilledAddress(addr); setShowAddForm(true); }}
+          />
+        )}
         {activeTab === 'sistema' && <SistemaSection customers={customers} refresh={fetchCustomers} />}
       </main>
 
@@ -62,7 +69,12 @@ export default function App() {
         <NavButton active={activeTab === 'sistema'} onClick={() => setActiveTab('sistema')} icon={<Settings />} label="SISTEMA" />
       </nav>
 
-      {showAddForm && <AddCustomerModal onClose={() => setShowAddForm(false)} />}
+      {showAddForm && (
+        <AddCustomerModal 
+          initialAddress={prefilledAddress} 
+          onClose={() => setShowAddForm(false)} 
+        />
+      )}
       
       {selectedCustomer && (
         <CustomerDetailModal 
@@ -107,7 +119,7 @@ function ClientiSection({ customers, totalCount, searchTerm, setSearchTerm, onAd
 
       <div className="bg-[#0D1B2A] rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
         <p className="text-[10px] font-bold text-[#FFD700] tracking-widest uppercase mb-1">Account in Archivio</p>
-        <h2 className="text-5xl font-black">{totalCount}</h2>
+        <h2 className="text-5xl font-black text-left">{totalCount}</h2>
       </div>
 
       <div className="space-y-3">
@@ -143,8 +155,8 @@ function ClientiSection({ customers, totalCount, searchTerm, setSearchTerm, onAd
   );
 }
 
-// --- SEZIONE SCANNER (FIX FINALE) ---
-function ScannerSection({ customers }) {
+// --- SEZIONE SCANNER ---
+function ScannerSection({ customers, onOpenDetail, onAddNew }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanResults, setScanResults] = useState([]);
@@ -159,52 +171,38 @@ function ScannerSection({ customers }) {
   };
 
   const handleStartScan = async () => {
-    if (!selectedFile || customers.length === 0) return;
+    if (!selectedFile) return;
     setIsScanning(true);
 
     try {
-      // Importazione dinamica corretta per ambiente Browser/Vercel
       const pdfjs = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs');
       pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.mjs';
 
       const arrayBuffer = await selectedFile.arrayBuffer();
-      const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
-      const pdf = await loadingTask.promise;
+      const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
       let fullText = "";
 
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
-        const strings = content.items.map(item => item.str);
-        fullText += strings.join(" ") + "\n";
+        fullText += content.items.map(item => item.str).join(" ") + "\n";
       }
 
-      const upperText = fullText.toUpperCase();
-      const foundMatches = [];
+      [span_6](start_span)// Regex per estrarre indirizzi (Via, Viale, ecc + nome + civico)[span_6](end_span)
+      const addressRegex = /(?:VIA|VIALE|CONTRADA|TRAVERSA|PIAZZA)\s+[^,0-9\n]+[\s\d\/]+(?:\s*[A-Z])?/gi;
+      const foundAddresses = Array.from(new Set(fullText.match(addressRegex) || []))
+        .map(addr => addr.trim().toUpperCase());
 
-      customers.forEach(customer => {
-        const addr = customer.address.toUpperCase().trim();
-        if (addr && upperText.includes(addr)) {
-          // Cerchiamo la riga intera nel PDF che contiene la via
-          const lines = upperText.split(/\n| {3,}/);
-          const pdfLine = lines.find(l => l.includes(addr)) || addr;
-          
-          foundMatches.push({
-            pdfStreet: pdfLine.trim(),
-            customer: customer
-          });
-        }
+      const results = foundAddresses.map(pdfAddr => {
+        const match = customers.find(c => 
+          pdfAddr.includes(c.address.toUpperCase().trim()) || 
+          c.address.toUpperCase().trim().includes(pdfAddr)
+        );
+        return { pdfAddr, customer: match || null };
       });
 
-      // Rimuoviamo i duplicati
-      const uniqueMatches = Array.from(new Set(foundMatches.map(a => JSON.stringify(a))))
-        .map(e => JSON.parse(e));
-
-      setScanResults(uniqueMatches);
-      if (uniqueMatches.length === 0) alert("Nessuna via corrispondente trovata.");
-      
+      setScanResults(results);
     } catch (error) {
-      console.error("Dettaglio Errore:", error);
       alert("Errore tecnico: " + error.message);
     } finally {
       setIsScanning(false);
@@ -213,7 +211,7 @@ function ScannerSection({ customers }) {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-3xl font-black text-[#0D1B2A]">Scanner Consegne</h2>
+      <h2 className="text-3xl font-black text-[#0D1B2A] text-left">Scanner Consegne</h2>
       
       <div 
         onClick={() => fileInputRef.current.click()}
@@ -221,8 +219,8 @@ function ScannerSection({ customers }) {
       >
         <input type="file" accept=".pdf" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
         <FileUp size={40} className={`mx-auto mb-2 ${selectedFile ? 'text-[#FFD700]' : 'text-slate-300'}`} />
-        <p className="font-bold text-[#0D1B2A] text-xs uppercase">
-          {selectedFile ? selectedFile.name : 'Seleziona Lista Consegne PDF'}
+        <p className="font-bold text-[#0D1B2A] text-xs uppercase text-center">
+          {selectedFile ? selectedFile.name : 'Carica Lista PDF'}
         </p>
       </div>
 
@@ -236,20 +234,33 @@ function ScannerSection({ customers }) {
 
       {scanResults.length > 0 && (
         <div className="space-y-4 pb-10">
-          <h3 className="font-bold text-slate-400 text-[10px] uppercase tracking-widest italic text-left">Corrispondenze rilevate:</h3>
+          <h3 className="font-bold text-slate-400 text-[10px] uppercase tracking-widest italic text-left">Risultati:</h3>
           <div className="grid gap-4">
             {scanResults.map((res, index) => (
-              <div key={index} className="bg-white p-5 rounded-[32px] border border-slate-100 shadow-sm text-left">
-                <p className="font-black text-[#0D1B2A] text-sm uppercase mb-3 leading-tight">
-                  {res.pdfStreet}
-                </p>
-                <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border-l-4 border-[#FFD700]">
-                  <CheckCircle2 className="text-[#FFD700]" size={20} />
-                  <div>
-                    <p className="text-xs font-black text-slate-700 uppercase">{res.customer.name}</p>
-                    <p className="text-[10px] text-slate-500 font-medium">{res.customer.address}</p>
+              <div 
+                key={index} 
+                onClick={() => res.customer ? onOpenDetail(res.customer) : onAddNew(res.pdfAddr)}
+                className="bg-white p-5 rounded-[32px] border border-slate-100 shadow-sm text-left active:scale-[0.98] transition-transform cursor-pointer"
+              >
+                <p className="font-black text-[#0D1B2A] text-sm uppercase mb-3 leading-tight">{res.pdfAddr}</p>
+                
+                {res.customer ? (
+                  <div className="flex items-center gap-4 bg-yellow-50/50 p-4 rounded-2xl border-l-4 border-[#FFD700]">
+                    <CheckCircle2 className="text-[#FFD700]" size={20} />
+                    <div className="min-w-0">
+                      <p className="text-xs font-black text-slate-700 uppercase truncate">{res.customer.name}</p>
+                      <p className="text-[10px] text-slate-500 font-medium">Tocca per i dettagli</p>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="flex items-center justify-between bg-slate-50 p-4 rounded-2xl border-l-4 border-slate-300">
+                    <div className="flex items-center gap-3">
+                      <X className="text-slate-300" size={20} />
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Nuovo Cliente</p>
+                    </div>
+                    <div className="bg-[#FFD700] p-1 rounded-full text-white"><Plus size={14} /></div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -290,7 +301,7 @@ function SistemaSection({ customers, refresh }) {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-3xl font-black text-[#0D1B2A]">Sistema</h2>
+      <h2 className="text-3xl font-black text-[#0D1B2A] text-left">Sistema</h2>
       <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm text-center">
         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Stato Archivio</p>
         <p className="text-5xl font-black text-[#0D1B2A]">{customers.length}</p>
@@ -387,7 +398,9 @@ function CustomerDetailModal({ customer, onClose, onRefresh }) {
   );
 }
 
-function AddCustomerModal({ onClose }) {
+function AddCustomerModal({ initialAddress, onClose }) {
+  const [address, setAddress] = useState(initialAddress || "");
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
@@ -410,8 +423,15 @@ function AddCustomerModal({ onClose }) {
           <input name="name" required className="w-full p-5 bg-slate-50 rounded-[25px] font-bold uppercase" placeholder="RAGIONE SOCIALE" />
           <input name="phone" className="w-full p-5 bg-slate-50 rounded-[25px]" placeholder="TELEFONO" />
           <div className="grid grid-cols-2 gap-3">
-            <input name="city" required className="w-full p-5 bg-slate-50 rounded-[25px]" placeholder="CITTÀ" />
-            <input name="address" required className="w-full p-5 bg-slate-50 rounded-[25px]" placeholder="VIA (ES: VIA ROMA 1)" />
+            <input name="city" required className="w-full p-5 bg-slate-50 rounded-[25px]" placeholder="CITTÀ" defaultValue="Reggio Calabria" />
+            <input 
+              name="address" 
+              required 
+              value={address} 
+              onChange={(e) => setAddress(e.target.value)} 
+              className="w-full p-5 bg-slate-50 rounded-[25px]" 
+              placeholder="VIA (ES: VIA ROMA 1)" 
+            />
           </div>
           <textarea name="instructions" className="w-full p-5 bg-slate-50 rounded-[25px] h-32" placeholder="NOTE SCARICO..."></textarea>
           <button type="submit" className="w-full bg-[#FFD700] py-5 rounded-[30px] font-black uppercase shadow-lg">Salva Cliente</button>
