@@ -184,22 +184,24 @@ function ScannerSection({ customers, onOpenDetail, onAddNew }) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
         
-        // Uniamo gli elementi di testo mantenendo gli spazi
-        const pageText = content.items.map(item => item.str).join(" ");
-        
-        // Regex per isolare solo la via con il numero civico/SNC
-        // Cerca parole chiave seguite da testo e poi da cifre o SNC
-        const addressRegex = /(?:VIA|VIALE|CONTRADA|TRAVERSA|PIAZZA|CORSO)\s+[A-Z\s]+(?:\s*(?:N\.|N|NUMERO)?\s*[\d\/]+|[\s,]+SNC|[\s,]+TERRA)/gi;
-        
-        const matches = pageText.match(addressRegex);
-        if (matches) {
-          matches.forEach(addr => {
-            const clean = addr.trim().toUpperCase().replace(/\s+/g, ' ');
-            if (!allFoundAddresses.includes(clean)) {
-              allFoundAddresses.push(clean);
+        // Estraiamo il testo ignorando i codici lunghi che non sono indirizzi
+        content.items.forEach(item => {
+            const text = item.str.trim();
+            // Salta i codici pacco (testo lungo senza spazi o con troppi numeri)
+            if (text.length > 8 && !text.includes(" ")) return;
+
+            // Identifica se è un indirizzo (Via, Viale, Corso...)
+            const addressMatch = text.match(/(?:VIA|VIALE|CONTRADA|TRAVERSA|PIAZZA|CORSO|Viale|Via|Contrada|Traversa|Piazza|Corso)\s+[A-Za-z\s]+(?:\s*(?:N\.|N|NUMERO)?\s*[\d\/]+|[\s,]+SNC|[\s,]+TERRA)/gi);
+            
+            if (addressMatch) {
+              addressMatch.forEach(addr => {
+                const clean = addr.trim().toUpperCase().replace(/\s+/g, ' ');
+                if (!allFoundAddresses.includes(clean)) {
+                  allFoundAddresses.push(clean);
+                }
+              });
             }
-          });
-        }
+        });
       }
 
       const results = allFoundAddresses.map(pdfAddr => {
