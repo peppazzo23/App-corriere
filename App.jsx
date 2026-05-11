@@ -191,7 +191,7 @@ function ScannerSection({ customers, onOpenDetail, onAddNew }) {
             if (text.length > 8 && !text.includes(" ")) return;
 
             // Identifica se è un indirizzo (Via, Viale, Corso...)
-            const addressMatch = text.match(/(?:VIA|VIALE|CONTRADA|TRAVERSA|PIAZZA|CORSO|VICO|vico|Vico|Viale|Cda|cda|CDA|Trav|trav|TRAV|Via|Contrada|Traversa|Piazza|Corso)\s+[A-Za-z\s]+(?:\s*(?:N\.|N|NUMERO)?\s*[\d\/]+|[\s,]+SNC|[\s,]+TERRA)/gi);
+            const addressMatch = text.match(/(?:VIA|VIALE|CONTRADA|TRAVERSA|PIAZZA|CORSO|VICO|Via|Viale|Contrada|Traversa|Piazza|Corso|Vico)\s+[A-Za-z\s]+(?:\s*(?:N\.|N|NUMERO)?\s*[\d\/]+|[\s,]+SNC|[\s,]+TERRA)/gi);
             
             if (addressMatch) {
               addressMatch.forEach(addr => {
