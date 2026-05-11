@@ -184,13 +184,10 @@ function ScannerSection({ customers, onOpenDetail, onAddNew }) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
         
-        // Estraiamo il testo ignorando i codici lunghi che non sono indirizzi
         content.items.forEach(item => {
             const text = item.str.trim();
-            // Salta i codici pacco (testo lungo senza spazi o con troppi numeri)
             if (text.length > 8 && !text.includes(" ")) return;
 
-            // Identifica se è un indirizzo (Via, Viale, Corso...)
             const addressMatch = text.match(/(?:VIA|VIALE|CONTRADA|TRAVERSA|PIAZZA|CORSO|Viale|Via|Contrada|Traversa|Piazza|Corso)\s+[A-Za-z\s]+(?:\s*(?:N\.|N|NUMERO)?\s*[\d\/]+|[\s,]+SNC|[\s,]+TERRA)/gi);
             
             if (addressMatch) {
@@ -204,11 +201,15 @@ function ScannerSection({ customers, onOpenDetail, onAddNew }) {
         });
       }
 
+      // CONFRONTO ESATTO (Case Insensitive): Indirizzo + Numero Civico
       const results = allFoundAddresses.map(pdfAddr => {
-        const match = customers.find(c => 
-          pdfAddr.includes(c.address.toUpperCase().trim()) || 
-          c.address.toUpperCase().trim().includes(pdfAddr)
-        );
+        const match = customers.find(c => {
+            // Pulizia e normalizzazione (tutto maiuscolo solo per il confronto)
+            const dbAddrNormalized = c.address.trim().toUpperCase().replace(/\s+/g, ' ');
+            const pdfAddrNormalized = pdfAddr.trim().toUpperCase().replace(/\s+/g, ' ');
+            
+            return dbAddrNormalized === pdfAddrNormalized;
+        });
         return { pdfAddr, customer: match || null };
       });
 
