@@ -1,5 +1,3 @@
-Seconda 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from './db';
 import Papa from 'papaparse';
