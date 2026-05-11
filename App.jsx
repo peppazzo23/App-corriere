@@ -201,13 +201,10 @@ function ScannerSection({ customers, onOpenDetail, onAddNew }) {
         });
       }
 
-      // CONFRONTO ESATTO (Case Insensitive): Indirizzo + Numero Civico
       const results = allFoundAddresses.map(pdfAddr => {
         const match = customers.find(c => {
-            // Pulizia e normalizzazione (tutto maiuscolo solo per il confronto)
             const dbAddrNormalized = c.address.trim().toUpperCase().replace(/\s+/g, ' ');
             const pdfAddrNormalized = pdfAddr.trim().toUpperCase().replace(/\s+/g, ' ');
-            
             return dbAddrNormalized === pdfAddrNormalized;
         });
         return { pdfAddr, customer: match || null };
@@ -433,7 +430,8 @@ function AddCustomerModal({ initialAddress, onClose }) {
           <input name="name" required className="w-full p-5 bg-slate-50 rounded-[25px] font-bold uppercase" placeholder="NOME/RAGIONE SOCIALE" />
           <input name="phone" className="w-full p-5 bg-slate-50 rounded-[25px]" placeholder="TELEFONO" />
           <div className="grid grid-cols-2 gap-3">
-            <input name="city" required className="w-full p-5 bg-slate-50 rounded-[25px]" placeholder="CITTÀ" defaultValue="Bianco" />
+            {/* MODIFICA: Rimosso defaultValue="Bianco" per avere il campo vuoto */}
+            <input name="city" required className="w-full p-5 bg-slate-50 rounded-[25px]" placeholder="CITTÀ" />
             <input 
               name="address" 
               required 
